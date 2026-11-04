@@ -60,17 +60,20 @@ model, accuracy, X, y = train_model()
 # 3. SESSION STATE
 # =====================================================
 
-defaults = {
-    "canvas_key": 0,
-    "prediction": None,
-    "mode": "interactive",
-    "language": "FR",
-    "show_error": False
-}
+if "canvas_key" not in st.session_state:
+    st.session_state.canvas_key = 0
 
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+if "result" not in st.session_state:
+    st.session_state.result = None
+
+if "demo_error" not in st.session_state:
+    st.session_state.demo_error = False
+
+if "pending_demo" not in st.session_state:
+    st.session_state.pending_demo = None
+
+if "language" not in st.session_state:
+    st.session_state.language = "FR"
 
 
 # =====================================================
@@ -80,77 +83,77 @@ for key, value in defaults.items():
 translations = {
 
     "FR": {
-        "header": "Reconnaissance de Chiffres",
         "title": "Reconnaissance de Chiffres Manuscrits",
         "subtitle": "Dessinez un chiffre de 0 à 9 dans la boîte ci-dessous, puis cliquez sur Prédire.",
         "draw": "DESSINEZ ICI",
         "result": "RÉSULTAT",
-        "thickness": "Épaisseur du stylo",
-        "tip": "Conseil : Dessinez un seul chiffre, en grand et bien centré pour de meilleurs résultats.",
-        "predict": "Prédire",
+        "instruction": "Dessinez le chiffre en grand et bien centré pour de meilleurs résultats.",
+        "tip": "Conseil : écrivez un seul chiffre clairement au centre.",
+        "predict": "▶ Prédire",
         "clear": "Effacer",
-        "detected": "Chiffre prédit",
+        "digit": "Chiffre prédit",
         "confidence": "Confiance",
         "processed": "Image transmise au modèle (8×8)",
         "votes": "VOTES DES VOISINS",
         "neighbors": "voisins",
-        "waiting": "En attente de votre dessin...",
-        "empty": "Veuillez dessiner un chiffre avant de lancer la prédiction.",
-        "error": "Erreur : impossible de lire le dessin. Veuillez réessayer.",
-        "example": "Exemple 7",
-        "show_error": "Afficher erreur",
+        "empty": "Votre résultat apparaîtra ici après la prédiction.",
+        "error": "Aucun chiffre détecté. Dessinez d'abord un chiffre.",
+        "initial": "État initial (vide)",
+        "state7": "Résultat (Chiffre 7)",
+        "state3": "Résultat (Chiffre 3)",
+        "error_state": "État d'erreur",
         "about": "À propos",
+        "about_text": "Application de reconnaissance de chiffres manuscrits utilisant l'algorithme KNN et le dataset Digits de Scikit-learn.",
+        "accuracy": "Précision du modèle",
+        "algorithm": "Algorithme",
+        "number_neighbors": "Nombre de voisins",
         "interactive": "Interactif",
-        "footer": "Modèle : KNN (k=5) entraîné sur le jeu de données scikit-learn digits · Images 8×8",
-        "pen": "Épaisseur du trait",
-        "success": "Prédiction effectuée avec succès !",
-        "initial": "1. État initial (vide)",
-        "state2": "2. Résultat (Chiffre 7)",
-        "state3": "3. Résultat (Chiffre 3)",
-        "state4": "4. État d'erreur",
-        "about_text": "Cette application utilise l'algorithme KNN pour reconnaître les chiffres manuscrits. Dessinez un chiffre et le modèle recherchera ses 5 voisins les plus proches.",
-        "no_result": "Dessinez un chiffre puis cliquez sur Prédire."
+        "example": 'Exemple "7"',
+        "show_error": "Afficher Erreur",
+        "pen": "Épaisseur du stylo",
+        "waiting": "En attente de votre dessin",
+        "success": "Chiffre reconnu avec succès !"
     },
 
     "EN": {
-        "header": "Digit Recognition",
         "title": "Handwritten Digit Recognition",
         "subtitle": "Draw a digit from 0 to 9 in the box below, then click Predict.",
         "draw": "DRAW HERE",
         "result": "RESULT",
-        "thickness": "Pen thickness",
-        "tip": "Tip: Draw one digit clearly, large and centered for better results.",
-        "predict": "Predict",
+        "instruction": "Draw a large and centered digit for better results.",
+        "tip": "Tip: Write one digit clearly in the center.",
+        "predict": "▶ Predict",
         "clear": "Clear",
-        "detected": "Predicted digit",
+        "digit": "Predicted digit",
         "confidence": "Confidence",
         "processed": "Image sent to model (8×8)",
         "votes": "NEIGHBOR VOTES",
         "neighbors": "neighbors",
-        "waiting": "Waiting for your drawing...",
-        "empty": "Please draw a digit before making a prediction.",
-        "error": "Error: unable to read the drawing. Please try again.",
-        "example": "Example 7",
-        "show_error": "Show error",
+        "empty": "Your result will appear here after prediction.",
+        "error": "No digit detected. Please draw a digit first.",
+        "initial": "Initial state (empty)",
+        "state7": "Result (Digit 7)",
+        "state3": "Result (Digit 3)",
+        "error_state": "Error state",
         "about": "About",
+        "about_text": "Handwritten digit recognition application using KNN and the Scikit-learn Digits dataset.",
+        "accuracy": "Model Accuracy",
+        "algorithm": "Algorithm",
+        "number_neighbors": "Number of Neighbors",
         "interactive": "Interactive",
-        "footer": "Model: KNN (k=5) trained on scikit-learn digits dataset · 8×8 images",
+        "example": 'Example "7"',
+        "show_error": "Show Error",
         "pen": "Pen thickness",
-        "success": "Prediction completed successfully!",
-        "initial": "1. Initial state (empty)",
-        "state2": "2. Result (Digit 7)",
-        "state3": "3. Result (Digit 3)",
-        "state4": "4. Error state",
-        "about_text": "This application uses KNN to recognize handwritten digits. Draw a digit and the model will search for its 5 nearest neighbors.",
-        "no_result": "Draw a digit and click Predict."
+        "waiting": "Waiting for your drawing",
+        "success": "Digit successfully recognized!"
     }
 }
 
-t = translations[st.session_state.language]
+lang = translations[st.session_state.language]
 
 
 # =====================================================
-# 5. PRETRAITEMENT
+# 5. PRETRAITEMENT IMAGE
 # =====================================================
 
 def prepare_drawing(image_data):
@@ -162,23 +165,23 @@ def prepare_drawing(image_data):
         image_data.astype(np.uint8)
     ).convert("RGBA")
 
+    # Fond noir
     background = Image.new(
         "RGBA",
         image.size,
-        (255, 255, 255, 255)
+        (0, 0, 0, 255)
     )
 
     background.alpha_composite(image)
 
     gray = background.convert("L")
 
-    inverted = Image.eval(
+    array = np.asarray(
         gray,
-        lambda p: 255 - p
+        dtype=np.uint8
     )
 
-    array = np.asarray(inverted, dtype=np.uint8)
-
+    # Détection du chiffre blanc
     mask = array > 25
 
     if not np.any(mask):
@@ -191,9 +194,10 @@ def prepare_drawing(image_data):
         xs.min():xs.max() + 1
     ]
 
+    # Redimensionnement en 7x7
     h, w = cropped.shape
 
-    scale = 7 / max(h, w)
+    scale = 7.0 / max(h, w)
 
     new_w = max(1, int(round(w * scale)))
     new_h = max(1, int(round(h * scale)))
@@ -203,7 +207,12 @@ def prepare_drawing(image_data):
         Image.Resampling.LANCZOS
     )
 
-    final_image = Image.new("L", (8, 8), 0)
+    # Image finale 8x8
+    final_image = Image.new(
+        "L",
+        (8, 8),
+        0
+    )
 
     offset = (
         (8 - new_w) // 2,
@@ -217,6 +226,7 @@ def prepare_drawing(image_data):
         dtype=np.float32
     )
 
+    # Centrage
     if digit.sum() > 0:
 
         cy, cx = center_of_mass(digit)
@@ -229,8 +239,9 @@ def prepare_drawing(image_data):
             cval=0
         )
 
+    # Normalisation 0-16
     digit = np.clip(
-        digit / 255 * 16,
+        digit / 255.0 * 16.0,
         0,
         16
     )
@@ -239,259 +250,239 @@ def prepare_drawing(image_data):
 
 
 # =====================================================
-# 6. FONCTION DE PREDICTION
+# 6. FONCTION PREDICTION
 # =====================================================
 
 def make_prediction(sample):
 
-    digit = int(model.predict(sample)[0])
+    predicted_digit = int(
+        model.predict(sample)[0]
+    )
 
     probabilities = model.predict_proba(sample)[0]
 
-    confidence = float(np.max(probabilities))
-
-    distances, indices = model.kneighbors(sample)
-
-    neighbor_labels = y[indices[0]]
-
-    unique, counts = np.unique(
-        neighbor_labels,
-        return_counts=True
+    confidence = float(
+        np.max(probabilities)
     )
 
-    votes = sorted(
-        zip(unique, counts),
-        key=lambda item: item[1],
-        reverse=True
-    )
-
-    st.session_state.prediction = {
-        "digit": digit,
+    st.session_state.result = {
+        "digit": predicted_digit,
         "confidence": confidence,
         "probabilities": probabilities,
-        "image": sample.reshape(8, 8),
-        "votes": votes
+        "preview": sample.reshape(8, 8)
     }
 
-    st.session_state.show_error = False
+    st.session_state.demo_error = False
+
+
+def load_example(digit):
+
+    indices = np.where(y == digit)[0]
+
+    sample = X[indices[0]].reshape(1, 64)
+
+    make_prediction(sample)
 
 
 # =====================================================
-# 7. NAVIGATION
+# 7. TRAITEMENT DES DEMONSTRATIONS
 # =====================================================
 
-st.title("✍️ " + t["header"])
+if st.session_state.pending_demo is not None:
 
-nav1, nav2, nav3, nav4, nav5 = st.columns(
-    [1.2, 1, 1.2, 0.8, 0.8]
-)
+    demo = st.session_state.pending_demo
 
-with nav1:
-    if st.button(t["interactive"], use_container_width=True):
-        st.session_state.mode = "interactive"
-        st.session_state.prediction = None
-        st.session_state.show_error = False
-        st.rerun()
+    if demo == "7":
+        load_example(7)
 
-with nav2:
-    if st.button(t["example"], use_container_width=True):
-        st.session_state.mode = "example"
-        make_prediction(X[7].reshape(1, 64))
-        st.rerun()
+    elif demo == "3":
+        load_example(3)
 
-with nav3:
-    if st.button(t["show_error"], use_container_width=True):
-        st.session_state.mode = "error"
-        st.session_state.show_error = True
-        st.rerun()
+    elif demo == "initial":
+        st.session_state.result = None
+        st.session_state.demo_error = False
+        st.session_state.canvas_key += 1
 
-with nav4:
-    if st.button("🇫🇷 FR", use_container_width=True):
-        st.session_state.language = "FR"
-        st.rerun()
+    elif demo == "error":
+        st.session_state.result = None
+        st.session_state.demo_error = True
 
-with nav5:
-    if st.button("🇬🇧 EN", use_container_width=True):
-        st.session_state.language = "EN"
-        st.rerun()
+    st.session_state.pending_demo = None
 
-with st.expander("ℹ️ " + t["about"]):
-    st.write(t["about_text"])
+
+# =====================================================
+# 8. BARRE SUPERIEURE
+# =====================================================
+
+header1, header2 = st.columns([2, 3])
+
+with header1:
+
+    st.markdown("### ✍️ Reconnaissance de Chiffres")
+
+with header2:
+
+    nav1, nav2, nav3, nav4 = st.columns(
+        [1, 1, 1.4, 1]
+    )
+
+    with nav1:
+
+        st.button(
+            lang["interactive"],
+            use_container_width=True
+        )
+
+    with nav2:
+
+        if st.button(
+            lang["example"],
+            use_container_width=True
+        ):
+
+            st.session_state.pending_demo = "7"
+            st.rerun()
+
+    with nav3:
+
+        if st.button(
+            lang["show_error"],
+            use_container_width=True
+        ):
+
+            st.session_state.pending_demo = "error"
+            st.rerun()
+
+    with nav4:
+
+        selected_language = st.selectbox(
+            "Langue",
+            ["FR", "EN"],
+            index=0 if st.session_state.language == "FR" else 1,
+            label_visibility="collapsed"
+        )
+
+        if selected_language != st.session_state.language:
+
+            st.session_state.language = selected_language
+            st.rerun()
+
+
+with st.expander("ℹ️ " + lang["about"]):
+
+    st.write(lang["about_text"])
+
 
 st.divider()
 
 
 # =====================================================
-# 8. TITRE PRINCIPAL
+# 9. TITRE PRINCIPAL
 # =====================================================
 
-st.header(t["title"])
+st.title(lang["title"])
 
-st.caption(t["subtitle"])
-
-st.write("")
+st.caption(lang["subtitle"])
 
 
 # =====================================================
-# 9. STATISTIQUES
+# 10. DEUX PANNEAUX
 # =====================================================
 
-stat1, stat2, stat3 = st.columns(3)
-
-stat1.metric("🤖 Algorithm", "KNN")
-
-stat2.metric("👥 Number of Neighbors", "5")
-
-stat3.metric(
-    "🎯 Model Accuracy",
-    f"{accuracy * 100:.2f}%"
+left, right = st.columns(
+    [1, 1],
+    gap="large"
 )
 
-st.write("")
-
 
 # =====================================================
-# 10. LES DEUX RECTANGLES PRINCIPAUX
+# 11. PANNEAU DESSIN
 # =====================================================
-
-left, right = st.columns(2, gap="medium")
-
-
-# -----------------------------------------------------
-# RECTANGLE GAUCHE : DESSIN
-# -----------------------------------------------------
 
 with left:
 
     with st.container(border=True):
 
-        st.subheader("✍️ " + t["draw"])
+        draw_header, draw_size = st.columns([3, 1])
 
-        st.caption("280 × 280 px")
+        with draw_header:
+
+            st.markdown("**✍️ " + lang["draw"] + "**")
+
+        with draw_size:
+
+            st.caption("280 × 280 px")
 
         stroke = st.slider(
-            t["thickness"],
-            8,
-            30,
-            18
+            lang["pen"],
+            min_value=8,
+            max_value=38,
+            value=18,
+            step=2
         )
 
         canvas_result = st_canvas(
-            fill_color="rgba(255,255,255,0)",
+
+            fill_color="rgba(0,0,0,0)",
+
             stroke_width=stroke,
+
             stroke_color="#FFFFFF",
+
             background_color="#000000",
+
             height=280,
+
             width=280,
+
             drawing_mode="freedraw",
+
             update_streamlit=True,
+
             key=f"canvas_{st.session_state.canvas_key}"
+
         )
 
-        st.caption(t["tip"])
+        st.caption(
+            lang["instruction"]
+        )
+
+        st.write("")
 
         btn1, btn2 = st.columns([2, 1])
 
         with btn1:
+
             predict_clicked = st.button(
-                "▶ " + t["predict"],
+                lang["predict"],
                 type="primary",
                 use_container_width=True
             )
 
         with btn2:
+
             clear_clicked = st.button(
-                t["clear"],
+                lang["clear"],
                 use_container_width=True
             )
 
-
-# -----------------------------------------------------
-# RECTANGLE DROIT : RESULTAT
-# -----------------------------------------------------
-
-with right:
-
-    with st.container(border=True):
-
-        st.subheader("🎯 " + t["result"])
-
-        prediction = st.session_state.prediction
-
-        if prediction is not None:
-
-            st.success(t["success"])
-
-            st.markdown(
-                f"<h1 style='text-align:center;"
-                f"font-size:90px;color:#1677ff;'>"
-                f"{prediction['digit']}</h1>",
-                unsafe_allow_html=True
-            )
-
-            st.markdown(
-                f"**{t['detected']} : {prediction['digit']}**"
-            )
-
-            st.write(
-                f"**{t['confidence']} : "
-                f"{prediction['confidence'] * 100:.1f}%**"
-            )
-
-            st.progress(prediction["confidence"])
-
-            st.divider()
-
-            st.caption(t["processed"])
-
-            preview = (
-                prediction["image"] / 16 * 255
-            ).clip(0, 255).astype(np.uint8)
-
-            st.image(
-                preview,
-                width=100
-            )
-
-            st.divider()
-
-            st.caption(t["votes"])
-
-            for label, count in prediction["votes"]:
-
-                st.write(
-                    f"Chiffre {label} : "
-                    f"{count} / 5 {t['neighbors']}"
-                )
-
-                st.progress(count / 5)
-
-        else:
-
-            st.info(t["waiting"])
-
-            st.caption(t["no_result"])
+        st.caption("🖱️ Dessin tactile et souris supportés.")
 
 
 # =====================================================
-# 11. TRAITEMENT DES BOUTONS
+# 12. ACTIONS CANVAS
 # =====================================================
 
 if clear_clicked:
 
     st.session_state.canvas_key += 1
-
-    st.session_state.prediction = None
-
-    st.session_state.show_error = False
+    st.session_state.result = None
+    st.session_state.demo_error = False
 
     st.rerun()
 
 
 if predict_clicked:
-
-    if st.session_state.show_error:
-        st.session_state.show_error = False
 
     processed = None
 
@@ -499,26 +490,20 @@ if predict_clicked:
 
         if canvas_result is not None:
 
-            json_data = canvas_result.json_data
+            image_data = canvas_result.image_data
 
-            if (
-                json_data is not None
-                and len(json_data.get("objects", [])) > 0
-            ):
+            if image_data is not None:
 
-                image_data = canvas_result.image_data
+                processed = prepare_drawing(image_data)
 
-                if image_data is not None:
-
-                    processed = prepare_drawing(image_data)
-
-    except Exception:
+    except (RuntimeError, ValueError, OSError, AttributeError):
 
         processed = None
 
     if processed is None:
 
-        st.warning(t["empty"])
+        st.session_state.result = None
+        st.session_state.demo_error = True
 
     else:
 
@@ -526,66 +511,163 @@ if predict_clicked:
 
         make_prediction(sample)
 
-    st.rerun()
+
+# =====================================================
+# 13. PANNEAU RESULTAT
+# =====================================================
+
+with right:
+
+    with st.container(border=True):
+
+        result_header, result_badge = st.columns([3, 1])
+
+        with result_header:
+
+            st.markdown("**🎯 " + lang["result"] + "**")
+
+        with result_badge:
+
+            if st.session_state.result is not None:
+                st.success("OK")
+
+        result = st.session_state.result
+
+        if st.session_state.demo_error:
+
+            st.error(lang["error"])
+
+        elif result is not None:
+
+            st.success(lang["success"])
+
+            st.markdown(
+                f"<h1 style='text-align:center; font-size:90px;'>"
+                f"{result['digit']}</h1>",
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                f"**{lang['digit']}**",
+                text_alignment="center"
+            )
+
+            st.markdown(
+                f"🟢 {lang['confidence']} : "
+                f"**{result['confidence'] * 100:.1f}%** "
+                f"(KNN K=5)",
+            )
+
+            st.divider()
+
+            st.caption(lang["processed"])
+
+            preview = (
+                result["preview"] * 255 / 16
+            ).clip(0, 255).astype(np.uint8)
+
+            st.image(
+                preview,
+                width=110
+            )
+
+            st.divider()
+
+            st.caption(lang["votes"])
+
+            probabilities = result["probabilities"]
+
+            top_indices = np.argsort(
+                probabilities
+            )[::-1][:3]
+
+            for index in top_indices:
+
+                votes = int(
+                    round(probabilities[index] * 5)
+                )
+
+                if votes == 0:
+                    continue
+
+                st.write(
+                    f"Chiffre {index} : "
+                    f"{votes} / 5 {lang['neighbors']}"
+                )
+
+                st.progress(
+                    min(votes / 5, 1.0)
+                )
+
+        else:
+
+            st.info(lang["waiting"])
+
+            st.markdown(
+                "### 🔢",
+            )
+
+            st.caption(lang["empty"])
 
 
 # =====================================================
-# 12. ETAT D'ERREUR DEMO
-# =====================================================
-
-if st.session_state.show_error:
-
-    st.error(t["error"])
-
-
-# =====================================================
-# 13. ETATS DE DEMONSTRATION
+# 14. ETATS DE DEMONSTRATION
 # =====================================================
 
 st.divider()
 
-st.caption("États de démonstration")
+st.markdown("**États de démonstration :**")
 
 demo1, demo2, demo3, demo4 = st.columns(4)
 
 with demo1:
 
-    if st.button(t["initial"], use_container_width=True):
+    if st.button(
+        "1. État initial (vide)",
+        use_container_width=True
+    ):
 
-        st.session_state.prediction = None
-        st.session_state.show_error = False
-        st.session_state.mode = "interactive"
+        st.session_state.pending_demo = "initial"
         st.rerun()
 
 with demo2:
 
-    if st.button(t["state2"], use_container_width=True):
+    if st.button(
+        "2. Résultat (Chiffre 7)",
+        use_container_width=True
+    ):
 
-        make_prediction(X[7].reshape(1, 64))
-        st.session_state.mode = "example"
+        st.session_state.pending_demo = "7"
         st.rerun()
 
 with demo3:
 
-    if st.button(t["state3"], use_container_width=True):
+    if st.button(
+        "3. Résultat (Chiffre 3)",
+        use_container_width=True
+    ):
 
-        make_prediction(X[3].reshape(1, 64))
-        st.session_state.mode = "example"
+        st.session_state.pending_demo = "3"
         st.rerun()
 
 with demo4:
 
-    if st.button(t["state4"], use_container_width=True):
+    if st.button(
+        "4. État d'erreur",
+        use_container_width=True
+    ):
 
-        st.session_state.show_error = True
-        st.session_state.prediction = None
+        st.session_state.pending_demo = "error"
         st.rerun()
 
 
 # =====================================================
-# 14. FOOTER
+# 15. FOOTER
 # =====================================================
 
 st.divider()
 
-st.caption(t["footer"])
+st.caption(
+    "Modèle : KNN (k=5) entraîné sur le jeu de données "
+    "Scikit-learn Digits · Matrice de caractéristiques 8×8"
+)
