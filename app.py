@@ -1,419 +1,706 @@
+
 import streamlit as st
 import numpy as np
 import pandas as pd
 from PIL import Image
 from scipy.ndimage import center_of_mass, shift
+
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
+
 from streamlit_drawable_canvas import st_canvas
 
-# ---------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------
+
+# =====================================================
+# 1. CONFIGURATION
+# =====================================================
+
 st.set_page_config(
-    page_title="Reconnaissance de chiffres manuscrits | KNN",
+    page_title="KNN - Handwritten Digit Recognition",
     page_icon="✍️",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+    layout="wide"
 )
 
-# ---------------------------------------------------------
-# Style personnalisé (inspiration Bootstrap)
-# ---------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'DM Sans', sans-serif;
-    }
-    .stApp {
-        background: linear-gradient(135deg, #f5f7ff 0%, #eef2ff 55%, #f8fafc 100%);
-        color: #172033;
-    }
-    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-    .block-container {
-        max-width: 1180px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-    }
-    .hero {
-        background: linear-gradient(120deg, #172554 0%, #3730a3 55%, #4f46e5 100%);
-        color: white;
-        padding: 2.2rem 2.5rem;
-        border-radius: 24px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 18px 45px rgba(49,46,129,.18);
-    }
-    .hero-kicker {
-        color: #c7d2fe;
-        font-size: .78rem;
-        font-weight: 800;
-        letter-spacing: .16em;
-        text-transform: uppercase;
-        margin-bottom: .7rem;
-    }
-    .hero h1 {
-        color: white;
-        font-size: clamp(1.8rem, 4vw, 2.65rem);
-        line-height: 1.12;
-        font-weight: 800;
-        margin: 0 0 .75rem 0;
-    }
-    .hero p {
-        color: #e0e7ff;
-        font-size: 1.02rem;
-        margin: 0;
-        max-width: 760px;
-    }
-    .section-title {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: #1e1b4b;
-        margin: .25rem 0 .35rem 0;
-    }
-    .section-subtitle {
-        color: #64748b;
-        font-size: .92rem;
-        margin-bottom: 1rem;
-    }
-    .panel {
-        background: rgba(255,255,255,.92);
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        padding: 1.25rem 1.35rem;
-        box-shadow: 0 8px 25px rgba(15,23,42,.045);
-    }
-    .metric-card {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 1rem 1.1rem;
-        min-height: 100px;
-    }
-    .metric-label {
-        color: #64748b;
-        font-size: .78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-    }
-    .metric-value {
-        color: #312e81;
-        font-size: 1.65rem;
-        font-weight: 800;
-        margin-top: .2rem;
-    }
-    .result-card {
-        background: linear-gradient(145deg, #eef2ff, #ffffff);
-        border: 1px solid #c7d2fe;
-        border-radius: 20px;
-        padding: 1.35rem;
-        text-align: center;
-    }
-    .result-number {
-        color: #3730a3;
-        font-size: 5rem;
-        font-weight: 800;
-        line-height: 1.1;
-    }
-    .result-caption {
-        color: #64748b;
-        font-size: .88rem;
-        font-weight: 600;
-    }
-    .hint {
-        background: #eff6ff;
-        border-left: 4px solid #6366f1;
-        padding: .8rem 1rem;
-        border-radius: 10px;
-        color: #334155;
-        font-size: .9rem;
-    }
-    .footer {
-        text-align: center;
-        color: #94a3b8;
-        font-size: .8rem;
-        padding-top: 1.8rem;
-    }
-    div.stButton > button {
-        border-radius: 12px;
-        border: 0;
-        font-weight: 700;
-        min-height: 2.8rem;
-        transition: .2s ease;
-    }
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(100deg, #4338ca, #6366f1);
-        color: white;
-    }
-    div.stButton > button[kind="primary"]:hover {
-        background: linear-gradient(100deg, #3730a3, #4f46e5);
-        box-shadow: 0 8px 18px rgba(79,70,229,.2);
-    }
-    [data-testid="stCanvas"] {
-        border-radius: 14px;
-        overflow: hidden;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# =====================================================
+# 2. DESIGN CSS
+# =====================================================
 
-# ---------------------------------------------------------
-# Entraînement du modèle
-# ---------------------------------------------------------
+st.markdown("""
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.stApp {
+    background: linear-gradient(
+        135deg,
+        #f5f7ff,
+        #eef2ff,
+        #f8fafc
+    );
+    color: #172033;
+}
+
+.block-container {
+    max-width: 1180px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+.hero {
+    background: linear-gradient(
+        120deg,
+        #172554,
+        #3730a3,
+        #4f46e5
+    );
+    color: white;
+    padding: 2.5rem;
+    border-radius: 24px;
+    margin-bottom: 25px;
+    box-shadow: 0 18px 45px rgba(49,46,129,.18);
+}
+
+.hero h1 {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: 800;
+}
+
+.hero p {
+    color: #e0e7ff;
+    font-size: 1rem;
+}
+
+.kicker {
+    color: #c7d2fe;
+    font-size: .8rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.section-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #1e1b4b;
+    margin-bottom: 5px;
+}
+
+.section-subtitle {
+    color: #64748b;
+    font-size: .9rem;
+    margin-bottom: 18px;
+}
+
+.metric-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    min-height: 100px;
+}
+
+.metric-label {
+    color: #64748b;
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    color: #3730a3;
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
+.result-card {
+    background: linear-gradient(145deg, #eef2ff, white);
+    border: 1px solid #c7d2fe;
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+}
+
+.result-number {
+    color: #3730a3;
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.result-caption {
+    color: #64748b;
+    font-size: .9rem;
+    font-weight: 600;
+}
+
+.hint {
+    background: #eff6ff;
+    border-left: 4px solid #6366f1;
+    padding: 12px;
+    border-radius: 10px;
+    color: #334155;
+    font-size: .9rem;
+    margin-top: 12px;
+}
+
+.footer {
+    text-align: center;
+    color: #94a3b8;
+    font-size: .8rem;
+    padding-top: 30px;
+}
+
+div.stButton > button {
+    border-radius: 12px;
+    font-weight: 700;
+    min-height: 45px;
+}
+
+div.stButton > button[kind="primary"] {
+    background: linear-gradient(100deg, #4338ca, #6366f1);
+    color: white;
+    border: none;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# =====================================================
+# 3. CHARGEMENT ET ENTRAINEMENT DU MODELE KNN
+# =====================================================
+
 @st.cache_resource
-def train_knn():
-    digits = load_digits()
+def train_model():
+
+    X, y = load_digits(return_X_y=True)
+
     X_train, X_test, y_train, y_test = train_test_split(
-        digits.data,
-        digits.target,
-        test_size=0.30,
+        X,
+        y,
+        test_size=0.3,
         random_state=42,
-        stratify=digits.target,
+        stratify=y
     )
+
     model = KNeighborsClassifier(n_neighbors=5)
+
     model.fit(X_train, y_train)
-    score = accuracy_score(y_test, model.predict(X_test))
-    return model, score, digits
 
-model, model_accuracy, digits_data = train_knn()
+    y_pred = model.predict(X_test)
 
-# ---------------------------------------------------------
-# Prétraitement du dessin : fond noir, chiffre clair, 8x8
-# ---------------------------------------------------------
+    accuracy = accuracy_score(y_test, y_pred)
+
+    return model, accuracy
+
+
+model, accuracy = train_model()
+
+
+# =====================================================
+# 4. PRETRAITEMENT DU DESSIN
+# =====================================================
+
 def prepare_drawing(image_data):
-    """Transforme le dessin du canvas en vecteur 8x8 compatible avec load_digits."""
+
     if image_data is None:
         return None
 
-    rgba = Image.fromarray(image_data.astype("uint8")).convert("RGBA")
-    white_bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-    white_bg.alpha_composite(rgba)
-    gray = white_bg.convert("L")
+    # Conversion en image RGBA
+    image = Image.fromarray(
+        image_data.astype(np.uint8)
+    ).convert("RGBA")
 
-    # Le canvas utilise un chiffre sombre sur fond blanc.
-    # Le dataset sklearn utilise un chiffre clair sur fond noir.
-    inverted = Image.eval(gray, lambda px: 255 - px)
-    arr = np.asarray(inverted, dtype=np.uint8)
+    # Fond blanc
+    background = Image.new(
+        "RGBA",
+        image.size,
+        (255, 255, 255, 255)
+    )
 
-    # Nettoyage léger et détection de la zone contenant le chiffre.
-    mask = arr > 25
+    background.alpha_composite(image)
+
+    # Conversion niveaux de gris
+    gray = background.convert("L")
+
+    # Inversion : chiffre blanc, fond noir
+    inverted = Image.eval(
+        gray,
+        lambda pixel: 255 - pixel
+    )
+
+    array = np.asarray(inverted, dtype=np.uint8)
+
+    # Détection du chiffre
+    mask = array > 25
+
     if not np.any(mask):
         return None
 
+    # Recadrage
     ys, xs = np.where(mask)
-    cropped = arr[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    crop_img = Image.fromarray(cropped)
 
-    # Redimensionnement proportionnel dans une zone 7x7,
-    # puis placement au centre d'une image 8x8.
+    cropped = array[
+        ys.min():ys.max() + 1,
+        xs.min():xs.max() + 1
+    ]
+
+    # Redimensionnement proportionnel
     h, w = cropped.shape
+
     scale = 7.0 / max(h, w)
+
     new_w = max(1, int(round(w * scale)))
     new_h = max(1, int(round(h * scale)))
-    resized = crop_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    canvas = Image.new("L", (8, 8), 0)
-    offset = ((8 - new_w) // 2, (8 - new_h) // 2)
-    canvas.paste(resized, offset)
+    resized = Image.fromarray(cropped).resize(
+        (new_w, new_h),
+        Image.Resampling.LANCZOS
+    )
 
-    digit = np.asarray(canvas, dtype=np.float32)
+    # Image finale 8x8
+    final_image = Image.new(
+        "L",
+        (8, 8),
+        0
+    )
 
-    # Recentre le centre de gravité du tracé.
+    offset = (
+        (8 - new_w) // 2,
+        (8 - new_h) // 2
+    )
+
+    final_image.paste(resized, offset)
+
+    digit = np.asarray(
+        final_image,
+        dtype=np.float32
+    )
+
+    # Centrage du chiffre
     if digit.sum() > 0:
+
         cy, cx = center_of_mass(digit)
+
         digit = shift(
             digit,
             shift=(3.5 - cy, 3.5 - cx),
             order=1,
             mode="constant",
-            cval=0.0,
+            cval=0
         )
 
-    # sklearn load_digits contient des intensités de 0 à 16.
-    digit = np.clip(digit / 255.0 * 16.0, 0, 16)
+    # Normalisation de 0 à 16
+    digit = np.clip(
+        digit / 255.0 * 16.0,
+        0,
+        16
+    )
+
     return digit.reshape(1, 64), digit
 
 
-# ---------------------------------------------------------
-# En-tête
-# ---------------------------------------------------------
-st.markdown(
-    """
-    <div class="hero">
-        <div class="hero-kicker">Machine Learning · Classification</div>
-        <h1>Reconnaissance des chiffres manuscrits</h1>
-        <p>Dessinez un chiffre de 0 à 9 et laissez l’algorithme K plus proches voisins
-        (KNN) analyser votre écriture et prédire le résultat.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# =====================================================
+# 5. INITIALISATION SESSION
+# =====================================================
 
-# Indicateurs
-m1, m2, m3 = st.columns(3)
-with m1:
-    st.markdown(
-        f'<div class="metric-card"><div class="metric-label">Algorithme</div>'
-        f'<div class="metric-value">KNN</div></div>',
-        unsafe_allow_html=True,
-    )
-with m2:
-    st.markdown(
-        '<div class="metric-card"><div class="metric-label">Nombre de voisins (K)</div>'
-        '<div class="metric-value">5</div></div>',
-        unsafe_allow_html=True,
-    )
-with m3:
-    st.markdown(
-        f'<div class="metric-card"><div class="metric-label">Précision sur le test</div>'
-        f'<div class="metric-value">{model_accuracy * 100:.1f}%</div></div>',
-        unsafe_allow_html=True,
-    )
+if "canvas_key" not in st.session_state:
+    st.session_state.canvas_key = 0
+
+if "prediction" not in st.session_state:
+    st.session_state.prediction = None
+
+
+# =====================================================
+# 6. HEADER
+# =====================================================
+
+st.markdown("""
+<div class="hero">
+
+    <div class="kicker">
+        MACHINE LEARNING · CLASSIFICATION
+    </div>
+
+    <h1>
+        Handwritten Digit Recognition
+    </h1>
+
+    <p>
+        Dessinez un chiffre de 0 à 9 et laissez
+        l'algorithme KNN reconnaître votre écriture
+        grâce au Machine Learning.
+    </p>
+
+</div>
+""", unsafe_allow_html=True)
+
+
+# =====================================================
+# 7. STATISTIQUES
+# =====================================================
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">
+            Algorithme
+        </div>
+        <div class="metric-value">
+            KNN
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+
+    st.markdown("""
+    <div class="metric-card">
+        <div class="metric-label">
+            Nombre de voisins
+        </div>
+        <div class="metric-value">
+            K = 5
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">
+            Accuracy
+        </div>
+        <div class="metric-value">
+            {accuracy * 100:.2f}%
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 st.write("")
 
-# ---------------------------------------------------------
-# Interface de dessin et prédiction
-# ---------------------------------------------------------
-left, right = st.columns([1.08, 0.92], gap="large")
+
+# =====================================================
+# 8. INTERFACE PRINCIPALE
+# =====================================================
+
+left, right = st.columns(
+    [1.08, 0.92],
+    gap="large"
+)
+
+
+# =====================================================
+# 9. ZONE DE DESSIN
+# =====================================================
 
 with left:
-    st.markdown('<div class="section-title">✍️ 1. Dessinez votre chiffre</div>', unsafe_allow_html=True)
+
     st.markdown(
-        '<div class="section-subtitle">Utilisez votre souris ou votre doigt pour écrire un seul chiffre.</div>',
-        unsafe_allow_html=True,
+        '<div class="section-title">✍️ Draw your digit</div>',
+        unsafe_allow_html=True
     )
 
-    with st.container(border=True):
-        stroke = st.slider("Épaisseur du trait", min_value=8, max_value=30, value=18, step=2)
-        if "canvas_key" not in st.session_state:
-            st.session_state.canvas_key = 0
+    st.markdown(
+        '<div class="section-subtitle">'
+        'Écrivez un chiffre dans la zone ci-dessous.'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-        canvas_result = st_canvas(
-            fill_color="rgba(255, 255, 255, 0)",
-            stroke_width=stroke,
-            stroke_color="#111827",
-            background_color="#FFFFFF",
-            background_image=None,
-            update_streamlit=True,
-            height=300,
-            width=300,
-            drawing_mode="freedraw",
-            point_display_radius=0,
-            key=f"digit_canvas_{st.session_state.canvas_key}",
+    stroke = st.slider(
+        "Épaisseur du stylo",
+        min_value=8,
+        max_value=30,
+        value=18,
+        step=2
+    )
+
+    canvas_result = st_canvas(
+
+        fill_color="rgba(255,255,255,0)",
+
+        stroke_width=stroke,
+
+        stroke_color="#111827",
+
+        background_color="#FFFFFF",
+
+        height=300,
+
+        width=300,
+
+        drawing_mode="freedraw",
+
+        update_streamlit=True,
+
+        key=f"canvas_{st.session_state.canvas_key}"
+
+    )
+
+    st.markdown("""
+    <div class="hint">
+        💡 Conseil : dessinez un seul chiffre,
+        assez grand et au centre de la zone.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.write("")
+
+    button1, button2 = st.columns(2)
+
+    with button1:
+
+        predict_clicked = st.button(
+            "🔍 Reconnaître le chiffre",
+            type="primary",
+            use_container_width=True
         )
 
-        st.markdown(
-            '<div class="hint">Conseil : écrivez au milieu de la zone, assez grand, '
-            'et évitez de dessiner plusieurs chiffres en même temps.</div>',
-            unsafe_allow_html=True,
+    with button2:
+
+        clear_clicked = st.button(
+            "↻ Effacer",
+            use_container_width=True
         )
 
-        btn_col1, btn_col2 = st.columns([1.35, 1])
-        with btn_col1:
-            predict_clicked = st.button("🔍  Reconnaître le chiffre", type="primary", use_container_width=True)
-        with btn_col2:
-            clear_clicked = st.button("↻  Effacer", use_container_width=True)
 
-        if clear_clicked:
-            st.session_state.canvas_key += 1
-            st.session_state.pop("prediction", None)
-            st.rerun()
+# =====================================================
+# 10. BOUTON EFFACER
+# =====================================================
 
-        if predict_clicked:
-            processed = prepare_drawing(canvas_result.image_data if canvas_result else None)
-            if processed is None:
-                st.warning("Veuillez d’abord dessiner un chiffre dans la zone blanche.")
-                st.session_state.pop("prediction", None)
-            else:
-                sample, preview = processed
-                predicted_digit = int(model.predict(sample)[0])
-                probabilities = model.predict_proba(sample)[0]
-                confidence = float(np.max(probabilities))
-                st.session_state.prediction = {
-                    "digit": predicted_digit,
-                    "confidence": confidence,
-                    "probabilities": probabilities,
-                    "preview": preview,
-                }
+if clear_clicked:
+
+    st.session_state.canvas_key += 1
+
+    st.session_state.prediction = None
+
+    st.rerun()
+
+
+# =====================================================
+# 11. PREDICTION KNN - CORRECTION CANVAS
+# =====================================================
+
+if predict_clicked:
+
+    processed = None
+
+    try:
+
+        if canvas_result is not None:
+
+            # Lecture sécurisée des données du canvas
+            image_data = canvas_result.image_data
+
+            if image_data is not None:
+
+                processed = prepare_drawing(image_data)
+
+    except (RuntimeError, ValueError, OSError, AttributeError):
+
+        processed = None
+
+    if processed is None:
+
+        st.session_state.prediction = None
+
+        st.warning(
+            "Veuillez dessiner un chiffre avant "
+            "de lancer la reconnaissance."
+        )
+
+    else:
+
+        sample, preview = processed
+
+        # Prédiction
+        predicted_digit = int(
+            model.predict(sample)[0]
+        )
+
+        # Probabilités de vote KNN
+        probabilities = model.predict_proba(sample)[0]
+
+        confidence = float(
+            np.max(probabilities)
+        )
+
+        st.session_state.prediction = {
+
+            "digit": predicted_digit,
+
+            "confidence": confidence,
+
+            "probabilities": probabilities,
+
+            "preview": preview
+
+        }
+
+
+# =====================================================
+# 12. AFFICHAGE DU RESULTAT
+# =====================================================
 
 with right:
-    st.markdown('<div class="section-title">🎯 2. Résultat de la prédiction</div>', unsafe_allow_html=True)
+
     st.markdown(
-        '<div class="section-subtitle">Le chiffre reconnu et le niveau de confiance du modèle.</div>',
-        unsafe_allow_html=True,
+        '<div class="section-title">🎯 Prediction Result</div>',
+        unsafe_allow_html=True
     )
 
-    prediction = st.session_state.get("prediction")
-    if prediction:
-        st.markdown(
-            f"""
-            <div class="result-card">
-                <div class="result-caption">CHIFFRE DÉTECTÉ</div>
-                <div class="result-number">{prediction['digit']}</div>
-                <div class="result-caption">Confiance du modèle : {prediction['confidence'] * 100:.1f}%</div>
+    st.markdown(
+        '<div class="section-subtitle">'
+        'Résultat de la reconnaissance par KNN.'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    prediction = st.session_state.prediction
+
+    if prediction is not None:
+
+        st.markdown(f"""
+        <div class="result-card">
+
+            <div class="result-caption">
+                CHIFFRE DETECTE
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+            <div class="result-number">
+                {prediction["digit"]}
+            </div>
+
+            <div class="result-caption">
+                Confiance : {prediction["confidence"] * 100:.1f}%
+            </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
         st.write("")
-        st.markdown("**Prétraitement du dessin (format 8 × 8)**")
+
+        st.markdown("**Image après prétraitement (8 × 8)**")
+
+        preview_image = (
+            prediction["preview"] / 16.0 * 255.0
+        ).clip(0, 255).astype(np.uint8)
+
         st.image(
-            prediction["preview"],
-            width=190,
-            clamp=True,
-            channels="GRAY",
+            preview_image,
+            width=160
         )
-        st.markdown("**Probabilité estimée pour chaque chiffre**")
+
+        st.markdown("**Probabilités par chiffre**")
+
         probability_df = pd.DataFrame({
+
             "Chiffre": [str(i) for i in range(10)],
-            "Probabilité": prediction["probabilities"],
+
+            "Probabilité": prediction["probabilities"]
+
         }).set_index("Chiffre")
-        st.bar_chart(probability_df, y="Probabilité", height=220)
-    else:
-        st.markdown(
-            """
-            <div class="panel" style="min-height:310px; display:flex; flex-direction:column;
-                 align-items:center; justify-content:center; text-align:center;">
-                <div style="font-size:3.5rem;">🔢</div>
-                <h3 style="color:#312e81; margin:.5rem 0;">En attente de votre dessin</h3>
-                <p style="color:#64748b; max-width:300px;">
-                    Votre prédiction apparaîtra ici après avoir dessiné un chiffre
-                    et cliqué sur « Reconnaître le chiffre ».
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
+
+        st.bar_chart(
+            probability_df,
+            y="Probabilité",
+            height=250
         )
 
-# ---------------------------------------------------------
-# Explication courte
-# ---------------------------------------------------------
+    else:
+
+        st.markdown("""
+        <div class="result-card">
+
+            <div style="font-size:60px;">
+                🔢
+            </div>
+
+            <h3 style="color:#3730a3;">
+                En attente de votre dessin
+            </h3>
+
+            <p style="color:#64748b;">
+                Votre résultat apparaîtra ici
+                après avoir dessiné un chiffre
+                et cliqué sur le bouton de reconnaissance.
+            </p>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# =====================================================
+# 13. EXPLICATION DU FONCTIONNEMENT
+# =====================================================
+
 st.write("")
-with st.expander("ℹ️ Comment fonctionne cette application ?"):
-    st.markdown(
-        """
-        1. **Dataset :** le modèle utilise `load_digits()` de Scikit-learn, qui contient
-           des images de chiffres manuscrits de 0 à 9 au format 8 × 8.
-        2. **Prétraitement :** le dessin est converti en niveaux de gris, recadré,
-           redimensionné en 8 × 8 et adapté au format du dataset.
-        3. **Classification :** KNN compare le dessin aux exemples appris et recherche
-           les 5 voisins les plus proches.
-        4. **Prédiction :** le chiffre ayant le meilleur vote est affiché, avec les
-           probabilités estimées par le modèle.
 
-        **À noter :** la confiance affichée correspond aux probabilités de vote de KNN ;
-        elle ne garantit pas que la prédiction est correcte.
-        """
-    )
+with st.expander("ℹ️ Comment fonctionne l'application ?"):
 
-st.markdown(
-    '<div class="footer">Projet de Machine Learning · Scikit-learn + Streamlit · KNN</div>',
-    unsafe_allow_html=True,
-)
+    st.markdown("""
+    ### 1. Dataset
+
+    Le modèle utilise le dataset `load_digits()`
+    de Scikit-learn contenant des chiffres manuscrits
+    de 0 à 9.
+
+    ### 2. Prétraitement
+
+    Le dessin de l'utilisateur est :
+
+    - Converti en niveaux de gris.
+    - Inversé pour obtenir un fond noir.
+    - Recadré automatiquement.
+    - Redimensionné en 8 × 8 pixels.
+    - Normalisé entre 0 et 16.
+
+    ### 3. Algorithme KNN
+
+    L'algorithme recherche les 5 voisins
+    les plus proches du chiffre dessiné.
+
+    ### 4. Classification
+
+    Le modèle effectue un vote parmi les voisins
+    pour déterminer le chiffre reconnu.
+
+    ### 5. Résultat
+
+    L'application affiche le chiffre prédit
+    et les probabilités de vote pour chaque classe.
+
+    **Remarque :** les probabilités de vote ne
+    constituent pas une garantie de précision.
+    """)
+
+
+# =====================================================
+# 14. FOOTER
+# =====================================================
+
+st.markdown("""
+<div class="footer">
+
+    Machine Learning Project · KNN Algorithm
+
+    <br>
+
+    Built with Python · Scikit-learn · Streamlit
+
+</div>
+""", unsafe_allow_html=True)
