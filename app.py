@@ -7,7 +7,7 @@ from PIL import Image
 from scipy.ndimage import center_of_mass, shift
 
 from sklearn.datasets import load_digits
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 
@@ -26,7 +26,7 @@ st.set_page_config(
 
 
 # =====================================================
-# 2. MODELE KNN
+# 2. ENTRAINEMENT ET OPTIMISATION KNN
 # =====================================================
 
 @st.cache_resource
@@ -42,18 +42,44 @@ def train_model():
         stratify=y
     )
 
-    model = KNeighborsClassifier(n_neighbors=5)
+    # Recherche des meilleurs paramètres
+    parameters = {
+        "n_neighbors": [3, 5, 7],
+        "weights": ["uniform", "distance"],
+        "metric": ["euclidean", "manhattan"]
+    }
 
-    model.fit(X_train, y_train)
+    search = GridSearchCV(
+        KNeighborsClassifier(),
+        parameters,
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1
+    )
 
+    search.fit(X_train, y_train)
+
+    # Meilleur modèle
+    model = search.best_estimator_
+
+    # Evaluation
     predictions = model.predict(X_test)
 
     accuracy = accuracy_score(y_test, predictions)
 
-    return model, accuracy, X, y
+    return (
+        model,
+        accuracy,
+        X,
+        y,
+        X_train,
+        y_train
+    )
 
 
-model, accuracy, X, y = train_model()
+model, accuracy, X, y, X_train, y_train = train_model()
+
+K = model.n_neighbors
 
 
 # =====================================================
@@ -88,11 +114,10 @@ translations = {
         "draw": "DESSINEZ ICI",
         "result": "RÉSULTAT",
         "instruction": "Dessinez le chiffre en grand et bien centré pour de meilleurs résultats.",
-        "tip": "Conseil : écrivez un seul chiffre clairement au centre.",
         "predict": "▶ Prédire",
         "clear": "Effacer",
         "digit": "Chiffre prédit",
-        "confidence": "Confiance",
+        "agreement": "Accord des voisins",
         "processed": "Image transmise au modèle (8×8)",
         "votes": "VOTES DES VOISINS",
         "neighbors": "voisins",
@@ -107,12 +132,16 @@ translations = {
         "accuracy": "Précision du modèle",
         "algorithm": "Algorithme",
         "number_neighbors": "Nombre de voisins",
-        "interactive": "Interactif",
-        "example": 'Exemple "7"',
-        "show_error": "Afficher Erreur",
-        "pen": "Épaisseur du stylo",
+        "tip": "Conseil : écrivez un seul chiffre clairement au centre.",
+        "success": "Chiffre reconnu avec succès !",
         "waiting": "En attente de votre dessin",
-        "success": "Chiffre reconnu avec succès !"
+        "uncertain": "Prédiction incertaine : les voisins sont partagés.",
+        "pen": "Épaisseur du stylo",
+        "distance": "Métrique de distance",
+        "weights": "Pondération",
+        "example": 'Exemple "7"',
+        "show_error": "Afficher erreur",
+        "footer": "Modèle KNN entraîné sur Scikit-learn Digits"
     },
 
     "EN": {
@@ -121,11 +150,10 @@ translations = {
         "draw": "DRAW HERE",
         "result": "RESULT",
         "instruction": "Draw a large and centered digit for better results.",
-        "tip": "Tip: Write one digit clearly in the center.",
         "predict": "▶ Predict",
         "clear": "Clear",
         "digit": "Predicted digit",
-        "confidence": "Confidence",
+        "agreement": "Neighbor agreement",
         "processed": "Image sent to model (8×8)",
         "votes": "NEIGHBOR VOTES",
         "neighbors": "neighbors",
@@ -140,12 +168,16 @@ translations = {
         "accuracy": "Model Accuracy",
         "algorithm": "Algorithm",
         "number_neighbors": "Number of Neighbors",
-        "interactive": "Interactive",
-        "example": 'Example "7"',
-        "show_error": "Show Error",
-        "pen": "Pen thickness",
+        "tip": "Tip: Write one digit clearly in the center.",
+        "success": "Digit successfully recognized!",
         "waiting": "Waiting for your drawing",
-        "success": "Digit successfully recognized!"
+        "uncertain": "Uncertain prediction: neighbors disagree.",
+        "pen": "Pen thickness",
+        "distance": "Distance metric",
+        "weights": "Weighting",
+        "example": 'Example "7"',
+        "show_error": "Show error",
+        "footer": "KNN model trained on Scikit-learn Digits"
     }
 }
 
@@ -153,7 +185,7 @@ lang = translations[st.session_state.language]
 
 
 # =====================================================
-# 5. PRETRAITEMENT IMAGE
+# 5. PRETRAITEMENT DES IMAGES
 # =====================================================
 
 def prepare_drawing(image_data):
@@ -181,12 +213,13 @@ def prepare_drawing(image_data):
         dtype=np.uint8
     )
 
-    # Détection du chiffre blanc
-    mask = array > 25
+    # Détection du chiffre
+    mask = array > 30
 
     if not np.any(mask):
         return None
 
+    # Recadrage
     ys, xs = np.where(mask)
 
     cropped = array[
@@ -194,10 +227,10 @@ def prepare_drawing(image_data):
         xs.min():xs.max() + 1
     ]
 
-    # Redimensionnement en 7x7
+    # Redimensionnement avec marge
     h, w = cropped.shape
 
-    scale = 7.0 / max(h, w)
+    scale = 6.0 / max(h, w)
 
     new_w = max(1, int(round(w * scale)))
     new_h = max(1, int(round(h * scale)))
@@ -207,7 +240,7 @@ def prepare_drawing(image_data):
         Image.Resampling.LANCZOS
     )
 
-    # Image finale 8x8
+    # Création 8x8
     final_image = Image.new(
         "L",
         (8, 8),
@@ -226,7 +259,7 @@ def prepare_drawing(image_data):
         dtype=np.float32
     )
 
-    # Centrage
+    # Centrage automatique
     if digit.sum() > 0:
 
         cy, cx = center_of_mass(digit)
@@ -250,30 +283,56 @@ def prepare_drawing(image_data):
 
 
 # =====================================================
-# 6. FONCTION PREDICTION
+# 6. PREDICTION ET VOTES DES VOISINS
 # =====================================================
 
 def make_prediction(sample):
 
+    # Prédiction KNN
     predicted_digit = int(
         model.predict(sample)[0]
     )
 
-    probabilities = model.predict_proba(sample)[0]
+    # Recherche des voisins les plus proches
+    distances, indices = model.kneighbors(sample)
 
-    confidence = float(
-        np.max(probabilities)
-    )
+    neighbor_labels = y_train[indices[0]]
 
+    neighbor_distances = distances[0]
+
+    # Comptage des votes
+    votes = {}
+
+    for label in neighbor_labels:
+
+        label = int(label)
+
+        votes[label] = votes.get(label, 0) + 1
+
+    # Accord des voisins
+    agreement = max(votes.values()) / K
+
+    # Sauvegarde du résultat
     st.session_state.result = {
+
         "digit": predicted_digit,
-        "confidence": confidence,
-        "probabilities": probabilities,
+
+        "agreement": agreement,
+
+        "votes": votes,
+
+        "distances": neighbor_distances,
+
         "preview": sample.reshape(8, 8)
+
     }
 
     st.session_state.demo_error = False
 
+
+# =====================================================
+# 7. EXEMPLES DU DATASET
+# =====================================================
 
 def load_example(digit):
 
@@ -285,25 +344,30 @@ def load_example(digit):
 
 
 # =====================================================
-# 7. TRAITEMENT DES DEMONSTRATIONS
+# 8. DEMONSTRATIONS
 # =====================================================
 
 if st.session_state.pending_demo is not None:
 
     demo = st.session_state.pending_demo
 
+    st.session_state.canvas_key += 1
+
     if demo == "7":
+
         load_example(7)
 
     elif demo == "3":
+
         load_example(3)
 
     elif demo == "initial":
+
         st.session_state.result = None
         st.session_state.demo_error = False
-        st.session_state.canvas_key += 1
 
     elif demo == "error":
+
         st.session_state.result = None
         st.session_state.demo_error = True
 
@@ -311,7 +375,7 @@ if st.session_state.pending_demo is not None:
 
 
 # =====================================================
-# 8. BARRE SUPERIEURE
+# 9. BARRE SUPERIEURE
 # =====================================================
 
 header1, header2 = st.columns([2, 3])
@@ -323,15 +387,12 @@ with header1:
 with header2:
 
     nav1, nav2, nav3, nav4 = st.columns(
-        [1, 1, 1.4, 1]
+        [1, 1, 1, 1]
     )
 
     with nav1:
 
-        st.button(
-            lang["interactive"],
-            use_container_width=True
-        )
+        st.caption("Mode interactif")
 
     with nav2:
 
@@ -377,7 +438,7 @@ st.divider()
 
 
 # =====================================================
-# 9. TITRE PRINCIPAL
+# 10. TITRE PRINCIPAL
 # =====================================================
 
 st.title(lang["title"])
@@ -386,7 +447,35 @@ st.caption(lang["subtitle"])
 
 
 # =====================================================
-# 10. DEUX PANNEAUX
+# 11. INFORMATIONS MODELE
+# =====================================================
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+
+    st.metric(
+        lang["algorithm"],
+        "KNN"
+    )
+
+with col2:
+
+    st.metric(
+        lang["number_neighbors"],
+        str(K)
+    )
+
+with col3:
+
+    st.metric(
+        lang["accuracy"],
+        f"{accuracy * 100:.2f}%"
+    )
+
+
+# =====================================================
+# 12. PANNEAUX PRINCIPAUX
 # =====================================================
 
 left, right = st.columns(
@@ -396,7 +485,7 @@ left, right = st.columns(
 
 
 # =====================================================
-# 11. PANNEAU DESSIN
+# 13. PANNEAU DESSIN
 # =====================================================
 
 with left:
@@ -443,9 +532,9 @@ with left:
 
         )
 
-        st.caption(
-            lang["instruction"]
-        )
+        st.caption(lang["instruction"])
+
+        st.caption("💡 " + lang["tip"])
 
         st.write("")
 
@@ -470,13 +559,15 @@ with left:
 
 
 # =====================================================
-# 12. ACTIONS CANVAS
+# 14. ACTIONS DESSIN
 # =====================================================
 
 if clear_clicked:
 
     st.session_state.canvas_key += 1
+
     st.session_state.result = None
+
     st.session_state.demo_error = False
 
     st.rerun()
@@ -503,6 +594,7 @@ if predict_clicked:
     if processed is None:
 
         st.session_state.result = None
+
         st.session_state.demo_error = True
 
     else:
@@ -513,7 +605,7 @@ if predict_clicked:
 
 
 # =====================================================
-# 13. PANNEAU RESULTAT
+# 15. PANNEAU RESULTAT
 # =====================================================
 
 with right:
@@ -526,18 +618,9 @@ with right:
 
             st.markdown("**🎯 " + lang["result"] + "**")
 
-        with result_badge:
-
-            if st.session_state.result is not None:
-                st.success("OK")
-
         result = st.session_state.result
 
-        if st.session_state.demo_error:
-
-            st.error(lang["error"])
-
-        elif result is not None:
+        if result is not None:
 
             st.success(lang["success"])
 
@@ -552,11 +635,14 @@ with right:
                 text_alignment="center"
             )
 
-            st.markdown(
-                f"🟢 {lang['confidence']} : "
-                f"**{result['confidence'] * 100:.1f}%** "
-                f"(KNN K=5)",
+            st.write(
+                f"**{lang['agreement']} : "
+                f"{result['agreement'] * 100:.1f}%**"
             )
+
+            if result["agreement"] < 0.6:
+
+                st.warning(lang["uncertain"])
 
             st.divider()
 
@@ -575,43 +661,38 @@ with right:
 
             st.caption(lang["votes"])
 
-            probabilities = result["probabilities"]
+            # Affichage des votes réels
+            sorted_votes = sorted(
+                result["votes"].items(),
+                key=lambda item: (-item[1], item[0])
+            )
 
-            top_indices = np.argsort(
-                probabilities
-            )[::-1][:3]
-
-            for index in top_indices:
-
-                votes = int(
-                    round(probabilities[index] * 5)
-                )
-
-                if votes == 0:
-                    continue
+            for digit, count in sorted_votes:
 
                 st.write(
-                    f"Chiffre {index} : "
-                    f"{votes} / 5 {lang['neighbors']}"
+                    f"Chiffre {digit} : "
+                    f"{count} / {K} {lang['neighbors']}"
                 )
 
                 st.progress(
-                    min(votes / 5, 1.0)
+                    count / K
                 )
+
+        elif st.session_state.demo_error:
+
+            st.error(lang["error"])
 
         else:
 
             st.info(lang["waiting"])
 
-            st.markdown(
-                "### 🔢",
-            )
+            st.markdown("### 🔢")
 
             st.caption(lang["empty"])
 
 
 # =====================================================
-# 14. ETATS DE DEMONSTRATION
+# 16. ETATS DE DEMONSTRATION
 # =====================================================
 
 st.divider()
@@ -623,7 +704,7 @@ demo1, demo2, demo3, demo4 = st.columns(4)
 with demo1:
 
     if st.button(
-        "1. État initial (vide)",
+        "1. " + lang["initial"],
         use_container_width=True
     ):
 
@@ -633,7 +714,7 @@ with demo1:
 with demo2:
 
     if st.button(
-        "2. Résultat (Chiffre 7)",
+        "2. " + lang["state7"],
         use_container_width=True
     ):
 
@@ -643,7 +724,7 @@ with demo2:
 with demo3:
 
     if st.button(
-        "3. Résultat (Chiffre 3)",
+        "3. " + lang["state3"],
         use_container_width=True
     ):
 
@@ -653,7 +734,7 @@ with demo3:
 with demo4:
 
     if st.button(
-        "4. État d'erreur",
+        "4. " + lang["error_state"],
         use_container_width=True
     ):
 
@@ -662,12 +743,15 @@ with demo4:
 
 
 # =====================================================
-# 15. FOOTER
+# 17. INFORMATIONS TECHNIQUES
 # =====================================================
 
 st.divider()
 
 st.caption(
-    "Modèle : KNN (k=5) entraîné sur le jeu de données "
-    "Scikit-learn Digits · Matrice de caractéristiques 8×8"
+    f"{lang['footer']} · "
+    f"K={K} · "
+    f"Métrique={model.metric} · "
+    f"Pondération={model.weights} · "
+    "Matrice de caractéristiques 8×8"
 )
