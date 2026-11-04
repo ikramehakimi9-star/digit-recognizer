@@ -2,6 +2,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+
 from PIL import Image
 from scipy.ndimage import center_of_mass, shift
 
@@ -13,170 +14,62 @@ from sklearn.metrics import accuracy_score
 from streamlit_drawable_canvas import st_canvas
 
 
-# =====================================================
+# ==================================================
 # 1. CONFIGURATION
-# =====================================================
+# ==================================================
 
 st.set_page_config(
-    page_title="KNN - Handwritten Digit Recognition",
+    page_title="Digit Recognition - KNN",
     page_icon="✍️",
     layout="wide"
 )
 
 
-# =====================================================
-# 2. DESIGN CSS
-# =====================================================
+# ==================================================
+# 2. STYLE STREAMLIT NATIF (SANS HTML)
+# ==================================================
 
 st.markdown("""
 <style>
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-}
-
 .stApp {
-    background: linear-gradient(
-        135deg,
-        #f5f7ff,
-        #eef2ff,
-        #f8fafc
-    );
-    color: #172033;
+    background-color: #f4f6fc;
 }
 
 .block-container {
-    max-width: 1180px;
+    max-width: 1150px;
     padding-top: 2rem;
-    padding-bottom: 3rem;
 }
 
-.hero {
-    background: linear-gradient(
-        120deg,
-        #172554,
-        #3730a3,
-        #4f46e5
-    );
-    color: white;
-    padding: 2.5rem;
-    border-radius: 24px;
-    margin-bottom: 25px;
-    box-shadow: 0 18px 45px rgba(49,46,129,.18);
-}
-
-.hero h1 {
-    color: white;
-    font-size: 2.5rem;
-    font-weight: 800;
-}
-
-.hero p {
-    color: #e0e7ff;
-    font-size: 1rem;
-}
-
-.kicker {
-    color: #c7d2fe;
-    font-size: .8rem;
-    font-weight: 800;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-}
-
-.section-title {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #1e1b4b;
-    margin-bottom: 5px;
-}
-
-.section-subtitle {
-    color: #64748b;
-    font-size: .9rem;
-    margin-bottom: 18px;
-}
-
-.metric-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 20px;
-    min-height: 100px;
-}
-
-.metric-label {
-    color: #64748b;
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.metric-value {
-    color: #3730a3;
-    font-size: 1.7rem;
-    font-weight: 800;
-}
-
-.result-card {
-    background: linear-gradient(145deg, #eef2ff, white);
-    border: 1px solid #c7d2fe;
-    border-radius: 20px;
-    padding: 30px;
-    text-align: center;
-}
-
-.result-number {
-    color: #3730a3;
-    font-size: 6rem;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-.result-caption {
-    color: #64748b;
-    font-size: .9rem;
-    font-weight: 600;
-}
-
-.hint {
-    background: #eff6ff;
-    border-left: 4px solid #6366f1;
-    padding: 12px;
-    border-radius: 10px;
-    color: #334155;
-    font-size: .9rem;
-    margin-top: 12px;
-}
-
-.footer {
-    text-align: center;
-    color: #94a3b8;
-    font-size: .8rem;
-    padding-top: 30px;
+h1, h2, h3 {
+    color: #25245e;
 }
 
 div.stButton > button {
-    border-radius: 12px;
-    font-weight: 700;
+    border-radius: 10px;
+    font-weight: bold;
     min-height: 45px;
 }
 
 div.stButton > button[kind="primary"] {
-    background: linear-gradient(100deg, #4338ca, #6366f1);
+    background-color: #4f46e5;
     color: white;
     border: none;
+}
+
+div[data-testid="stMetric"] {
+    background-color: white;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 
-# =====================================================
-# 3. CHARGEMENT ET ENTRAINEMENT DU MODELE KNN
-# =====================================================
+# ==================================================
+# 3. ENTRAINEMENT DU MODELE KNN
+# ==================================================
 
 @st.cache_resource
 def train_model():
@@ -195,9 +88,9 @@ def train_model():
 
     model.fit(X_train, y_train)
 
-    y_pred = model.predict(X_test)
+    predictions = model.predict(X_test)
 
-    accuracy = accuracy_score(y_test, y_pred)
+    accuracy = accuracy_score(y_test, predictions)
 
     return model, accuracy
 
@@ -205,16 +98,16 @@ def train_model():
 model, accuracy = train_model()
 
 
-# =====================================================
+# ==================================================
 # 4. PRETRAITEMENT DU DESSIN
-# =====================================================
+# ==================================================
 
 def prepare_drawing(image_data):
 
     if image_data is None:
         return None
 
-    # Conversion en image RGBA
+    # Conversion RGBA
     image = Image.fromarray(
         image_data.astype(np.uint8)
     ).convert("RGBA")
@@ -228,24 +121,27 @@ def prepare_drawing(image_data):
 
     background.alpha_composite(image)
 
-    # Conversion niveaux de gris
+    # Niveaux de gris
     gray = background.convert("L")
 
-    # Inversion : chiffre blanc, fond noir
+    # Inversion des couleurs
     inverted = Image.eval(
         gray,
         lambda pixel: 255 - pixel
     )
 
-    array = np.asarray(inverted, dtype=np.uint8)
+    array = np.asarray(
+        inverted,
+        dtype=np.uint8
+    )
 
-    # Détection du chiffre
+    # Détection des pixels du chiffre
     mask = array > 25
 
     if not np.any(mask):
         return None
 
-    # Recadrage
+    # Recadrage automatique
     ys, xs = np.where(mask)
 
     cropped = array[
@@ -266,7 +162,7 @@ def prepare_drawing(image_data):
         Image.Resampling.LANCZOS
     )
 
-    # Image finale 8x8
+    # Création image 8x8
     final_image = Image.new(
         "L",
         (8, 8),
@@ -298,7 +194,7 @@ def prepare_drawing(image_data):
             cval=0
         )
 
-    # Normalisation de 0 à 16
+    # Normalisation entre 0 et 16
     digit = np.clip(
         digit / 255.0 * 16.0,
         0,
@@ -308,9 +204,9 @@ def prepare_drawing(image_data):
     return digit.reshape(1, 64), digit
 
 
-# =====================================================
+# ==================================================
 # 5. INITIALISATION SESSION
-# =====================================================
+# ==================================================
 
 if "canvas_key" not in st.session_state:
     st.session_state.canvas_key = 0
@@ -319,168 +215,131 @@ if "prediction" not in st.session_state:
     st.session_state.prediction = None
 
 
-# =====================================================
+# ==================================================
 # 6. HEADER
-# =====================================================
+# ==================================================
 
-st.markdown("""
-<div class="hero">
+st.title("✍️ Handwritten Digit Recognition")
 
-    <div class="kicker">
-        MACHINE LEARNING · CLASSIFICATION
-    </div>
+st.markdown(
+    "### Reconnaissance des chiffres manuscrits avec KNN"
+)
 
-    <h1>
-        Handwritten Digit Recognition
-    </h1>
+st.write(
+    "Dessinez un chiffre de 0 à 9 et laissez "
+    "l'intelligence artificielle le reconnaître."
+)
 
-    <p>
-        Dessinez un chiffre de 0 à 9 et laissez
-        l'algorithme KNN reconnaître votre écriture
-        grâce au Machine Learning.
-    </p>
-
-</div>
-""", unsafe_allow_html=True)
+st.divider()
 
 
-# =====================================================
+# ==================================================
 # 7. STATISTIQUES
-# =====================================================
+# ==================================================
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">
-            Algorithme
-        </div>
-        <div class="metric-value">
-            KNN
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "Algorithme",
+        "KNN"
+    )
 
 with col2:
-
-    st.markdown("""
-    <div class="metric-card">
-        <div class="metric-label">
-            Nombre de voisins
-        </div>
-        <div class="metric-value">
-            K = 5
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "Nombre de voisins",
+        "K = 5"
+    )
 
 with col3:
-
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">
-            Accuracy
-        </div>
-        <div class="metric-value">
-            {accuracy * 100:.2f}%
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        "Précision du modèle",
+        f"{accuracy * 100:.2f}%"
+    )
 
 
-st.write("")
+st.divider()
 
 
-# =====================================================
+# ==================================================
 # 8. INTERFACE PRINCIPALE
-# =====================================================
+# ==================================================
 
 left, right = st.columns(
-    [1.08, 0.92],
+    [1, 1],
     gap="large"
 )
 
 
-# =====================================================
+# ==================================================
 # 9. ZONE DE DESSIN
-# =====================================================
+# ==================================================
 
 with left:
 
-    st.markdown(
-        '<div class="section-title">✍️ Draw your digit</div>',
-        unsafe_allow_html=True
-    )
+    with st.container(border=True):
 
-    st.markdown(
-        '<div class="section-subtitle">'
-        'Écrivez un chiffre dans la zone ci-dessous.'
-        '</div>',
-        unsafe_allow_html=True
-    )
+        st.subheader("✍️ Dessinez votre chiffre")
 
-    stroke = st.slider(
-        "Épaisseur du stylo",
-        min_value=8,
-        max_value=30,
-        value=18,
-        step=2
-    )
-
-    canvas_result = st_canvas(
-
-        fill_color="rgba(255,255,255,0)",
-
-        stroke_width=stroke,
-
-        stroke_color="#111827",
-
-        background_color="#FFFFFF",
-
-        height=300,
-
-        width=300,
-
-        drawing_mode="freedraw",
-
-        update_streamlit=True,
-
-        key=f"canvas_{st.session_state.canvas_key}"
-
-    )
-
-    st.markdown("""
-    <div class="hint">
-        💡 Conseil : dessinez un seul chiffre,
-        assez grand et au centre de la zone.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.write("")
-
-    button1, button2 = st.columns(2)
-
-    with button1:
-
-        predict_clicked = st.button(
-            "🔍 Reconnaître le chiffre",
-            type="primary",
-            use_container_width=True
+        st.caption(
+            "Utilisez votre souris pour dessiner un chiffre."
         )
 
-    with button2:
-
-        clear_clicked = st.button(
-            "↻ Effacer",
-            use_container_width=True
+        stroke = st.slider(
+            "Épaisseur du stylo",
+            min_value=8,
+            max_value=30,
+            value=18
         )
 
+        canvas_result = st_canvas(
 
-# =====================================================
-# 10. BOUTON EFFACER
-# =====================================================
+            fill_color="rgba(255,255,255,0)",
+
+            stroke_width=stroke,
+
+            stroke_color="#111111",
+
+            background_color="#FFFFFF",
+
+            height=300,
+
+            width=300,
+
+            drawing_mode="freedraw",
+
+            update_streamlit=True,
+
+            key=f"canvas_{st.session_state.canvas_key}"
+
+        )
+
+        st.info(
+            "Conseil : dessinez un seul chiffre "
+            "au centre de la zone."
+        )
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+
+            predict_clicked = st.button(
+                "🔍 Reconnaître",
+                type="primary",
+                use_container_width=True
+            )
+
+        with col_b:
+
+            clear_clicked = st.button(
+                "↻ Effacer",
+                use_container_width=True
+            )
+
+
+# ==================================================
+# 10. EFFACER LE DESSIN
+# ==================================================
 
 if clear_clicked:
 
@@ -491,9 +350,9 @@ if clear_clicked:
     st.rerun()
 
 
-# =====================================================
-# 11. PREDICTION KNN - CORRECTION CANVAS
-# =====================================================
+# ==================================================
+# 11. RECONNAISSANCE KNN
+# ==================================================
 
 if predict_clicked:
 
@@ -503,25 +362,40 @@ if predict_clicked:
 
         if canvas_result is not None:
 
-            # Lecture sécurisée des données du canvas
-            image_data = canvas_result.image_data
+            # Vérifier que le canvas contient un dessin
+            json_data = canvas_result.json_data
 
-            if image_data is not None:
+            if (
+                json_data is not None
+                and len(json_data.get("objects", [])) > 0
+            ):
 
-                processed = prepare_drawing(image_data)
+                # Lecture de l'image uniquement après
+                # vérification du contenu du canvas
+                image_data = canvas_result.image_data
 
-    except (RuntimeError, ValueError, OSError, AttributeError):
+                if image_data is not None:
+
+                    processed = prepare_drawing(
+                        image_data
+                    )
+
+    except Exception as error:
+
+        st.error(
+            f"Impossible de lire le dessin : {error}"
+        )
 
         processed = None
 
     if processed is None:
 
-        st.session_state.prediction = None
-
         st.warning(
             "Veuillez dessiner un chiffre avant "
             "de lancer la reconnaissance."
         )
+
+        st.session_state.prediction = None
 
     else:
 
@@ -532,13 +406,14 @@ if predict_clicked:
             model.predict(sample)[0]
         )
 
-        # Probabilités de vote KNN
+        # Probabilités
         probabilities = model.predict_proba(sample)[0]
 
         confidence = float(
             np.max(probabilities)
         )
 
+        # Sauvegarde du résultat
         st.session_state.prediction = {
 
             "digit": predicted_digit,
@@ -552,155 +427,127 @@ if predict_clicked:
         }
 
 
-# =====================================================
-# 12. AFFICHAGE DU RESULTAT
-# =====================================================
+# ==================================================
+# 12. AFFICHAGE RESULTAT
+# ==================================================
 
 with right:
 
-    st.markdown(
-        '<div class="section-title">🎯 Prediction Result</div>',
-        unsafe_allow_html=True
-    )
+    with st.container(border=True):
 
-    st.markdown(
-        '<div class="section-subtitle">'
-        'Résultat de la reconnaissance par KNN.'
-        '</div>',
-        unsafe_allow_html=True
-    )
+        st.subheader("🎯 Résultat de la reconnaissance")
 
-    prediction = st.session_state.prediction
+        prediction = st.session_state.prediction
 
-    if prediction is not None:
+        if prediction is not None:
 
-        st.markdown(f"""
-        <div class="result-card">
+            st.success("Chiffre reconnu avec succès !")
 
-            <div class="result-caption">
-                CHIFFRE DETECTE
-            </div>
+            st.markdown(
+                f"<h1 style='text-align:center;"
+                f"font-size:100px;color:#4f46e5;'>"
+                f"{prediction['digit']}</h1>",
+                unsafe_allow_html=True
+            )
 
-            <div class="result-number">
-                {prediction["digit"]}
-            </div>
+            st.metric(
+                "Confiance du modèle",
+                f"{prediction['confidence'] * 100:.1f}%"
+            )
 
-            <div class="result-caption">
-                Confiance : {prediction["confidence"] * 100:.1f}%
-            </div>
+            st.divider()
 
-        </div>
-        """, unsafe_allow_html=True)
+            st.write("Image après prétraitement (8 × 8)")
 
-        st.write("")
+            preview = (
+                prediction["preview"] * 255 / 16
+            ).clip(0, 255).astype(np.uint8)
 
-        st.markdown("**Image après prétraitement (8 × 8)**")
+            st.image(
+                preview,
+                width=150
+            )
 
-        preview_image = (
-            prediction["preview"] / 16.0 * 255.0
-        ).clip(0, 255).astype(np.uint8)
+            st.divider()
 
-        st.image(
-            preview_image,
-            width=160
-        )
+            st.write("Probabilités par chiffre")
 
-        st.markdown("**Probabilités par chiffre**")
+            df = pd.DataFrame({
 
-        probability_df = pd.DataFrame({
+                "Chiffre": [
+                    str(i) for i in range(10)
+                ],
 
-            "Chiffre": [str(i) for i in range(10)],
+                "Probabilité": prediction["probabilities"]
 
-            "Probabilité": prediction["probabilities"]
+            }).set_index("Chiffre")
 
-        }).set_index("Chiffre")
+            st.bar_chart(
+                df,
+                y="Probabilité"
+            )
 
-        st.bar_chart(
-            probability_df,
-            y="Probabilité",
-            height=250
-        )
+        else:
 
-    else:
+            st.info(
+                "En attente de votre dessin. "
+                "Le résultat apparaîtra ici."
+            )
 
-        st.markdown("""
-        <div class="result-card">
+            st.markdown(
+                "### 🔢",
+            )
 
-            <div style="font-size:60px;">
-                🔢
-            </div>
-
-            <h3 style="color:#3730a3;">
-                En attente de votre dessin
-            </h3>
-
-            <p style="color:#64748b;">
-                Votre résultat apparaîtra ici
-                après avoir dessiné un chiffre
-                et cliqué sur le bouton de reconnaissance.
-            </p>
-
-        </div>
-        """, unsafe_allow_html=True)
+            st.caption(
+                "Dessinez un chiffre puis cliquez "
+                "sur Reconnaître."
+            )
 
 
-# =====================================================
+# ==================================================
 # 13. EXPLICATION DU FONCTIONNEMENT
-# =====================================================
+# ==================================================
 
-st.write("")
+st.divider()
 
-with st.expander("ℹ️ Comment fonctionne l'application ?"):
+with st.expander("ℹ️ Comprendre le fonctionnement de KNN"):
 
     st.markdown("""
-    ### 1. Dataset
+    **1. Dataset**
 
-    Le modèle utilise le dataset `load_digits()`
-    de Scikit-learn contenant des chiffres manuscrits
-    de 0 à 9.
+    Utilisation de `load_digits()` de Scikit-learn,
+    contenant des images de chiffres manuscrits de 0 à 9.
 
-    ### 2. Prétraitement
+    **2. Prétraitement**
 
-    Le dessin de l'utilisateur est :
+    Le dessin est converti en niveaux de gris,
+    recadré et redimensionné en 8 × 8 pixels.
 
-    - Converti en niveaux de gris.
-    - Inversé pour obtenir un fond noir.
-    - Recadré automatiquement.
-    - Redimensionné en 8 × 8 pixels.
-    - Normalisé entre 0 et 16.
+    **3. Classification KNN**
 
-    ### 3. Algorithme KNN
+    Le modèle recherche les 5 exemples les plus proches
+    du dessin de l'utilisateur.
 
-    L'algorithme recherche les 5 voisins
-    les plus proches du chiffre dessiné.
+    **4. Prédiction**
 
-    ### 4. Classification
+    Le modèle effectue un vote pour identifier
+    le chiffre le plus probable.
 
-    Le modèle effectue un vote parmi les voisins
-    pour déterminer le chiffre reconnu.
+    **5. Résultat**
 
-    ### 5. Résultat
+    L'application affiche le chiffre reconnu
+    et les probabilités estimées par le modèle.
 
-    L'application affiche le chiffre prédit
-    et les probabilités de vote pour chaque classe.
-
-    **Remarque :** les probabilités de vote ne
-    constituent pas une garantie de précision.
     """)
 
 
-# =====================================================
+# ==================================================
 # 14. FOOTER
-# =====================================================
+# ==================================================
 
-st.markdown("""
-<div class="footer">
+st.divider()
 
-    Machine Learning Project · KNN Algorithm
-
-    <br>
-
-    Built with Python · Scikit-learn · Streamlit
-
-</div>
-""", unsafe_allow_html=True)
+st.caption(
+    "Machine Learning Project | KNN Algorithm | "
+    "Python - Scikit-learn - Streamlit"
+)
