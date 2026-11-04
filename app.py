@@ -26,12 +26,13 @@ st.set_page_config(
 
 
 # ==================================================
-# 2. STYLE
+# 2. STYLE CSS
 # ==================================================
 
 st.markdown("""
 <style>
 
+/* Background */
 .stApp {
     background-color: #f5f6fc;
 }
@@ -42,15 +43,12 @@ st.markdown("""
     padding-bottom: 2rem;
 }
 
-h1 {
+/* Titles */
+h1, h2, h3 {
     color: #25245e;
-    font-weight: 800;
 }
 
-h2, h3 {
-    color: #312e81;
-}
-
+/* Buttons */
 div.stButton > button {
     border-radius: 10px;
     font-weight: 600;
@@ -63,11 +61,47 @@ div.stButton > button[kind="primary"] {
     border: none;
 }
 
+/* Statistics cards */
 div[data-testid="stMetric"] {
     background-color: white;
     padding: 15px;
     border-radius: 12px;
     border: 1px solid #e5e7eb;
+}
+
+/* Main columns alignment */
+div[data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+    gap: 24px;
+}
+
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Equal height for the two main panels */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    min-height: 680px;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: 12px;
+}
+
+/* Panel padding */
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    padding: 18px;
+}
+
+/* Canvas centered */
+div[data-testid="stCanvas"] {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Footer */
+footer {
+    visibility: hidden;
 }
 
 </style>
@@ -225,18 +259,21 @@ st.divider()
 col1, col2, col3 = st.columns(3, gap="medium")
 
 with col1:
+
     st.metric(
         label="🤖 Algorithm",
         value="KNN"
     )
 
 with col2:
+
     st.metric(
         label="👥 Number of Neighbors",
         value="5"
     )
 
 with col3:
+
     st.metric(
         label="🎯 Model Accuracy",
         value=f"{accuracy * 100:.2f}%"
