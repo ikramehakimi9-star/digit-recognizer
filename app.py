@@ -14,69 +14,20 @@ from sklearn.metrics import accuracy_score
 from streamlit_drawable_canvas import st_canvas
 
 
-# ==================================================
+# =====================================================
 # 1. CONFIGURATION
-# ==================================================
+# =====================================================
 
 st.set_page_config(
-    page_title="Digit Recognition | KNN",
+    page_title="Reconnaissance de Chiffres",
     page_icon="✍️",
     layout="wide"
 )
 
 
-# ==================================================
-# 2. STYLE
-# ==================================================
-
-st.markdown("""
-<style>
-
-.stApp {
-    background-color: #f5f6fc;
-}
-
-.block-container {
-    max-width: 1150px;
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
-
-h1 {
-    color: #25245e;
-    font-weight: 800;
-}
-
-h2, h3 {
-    color: #312e81;
-}
-
-div.stButton > button {
-    border-radius: 10px;
-    font-weight: 600;
-    min-height: 43px;
-}
-
-div.stButton > button[kind="primary"] {
-    background-color: #4f46e5;
-    color: white;
-    border: none;
-}
-
-div[data-testid="stMetric"] {
-    background-color: white;
-    padding: 15px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# ==================================================
-# 3. TRAIN KNN MODEL
-# ==================================================
+# =====================================================
+# 2. MODELE KNN
+# =====================================================
 
 @st.cache_resource
 def train_model():
@@ -99,15 +50,108 @@ def train_model():
 
     accuracy = accuracy_score(y_test, predictions)
 
-    return model, accuracy
+    return model, accuracy, X, y
 
 
-model, accuracy = train_model()
+model, accuracy, X, y = train_model()
 
 
-# ==================================================
-# 4. IMAGE PREPROCESSING
-# ==================================================
+# =====================================================
+# 3. SESSION STATE
+# =====================================================
+
+defaults = {
+    "canvas_key": 0,
+    "prediction": None,
+    "mode": "interactive",
+    "language": "FR",
+    "show_error": False
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+# =====================================================
+# 4. TRADUCTIONS
+# =====================================================
+
+translations = {
+
+    "FR": {
+        "header": "Reconnaissance de Chiffres",
+        "title": "Reconnaissance de Chiffres Manuscrits",
+        "subtitle": "Dessinez un chiffre de 0 à 9 dans la boîte ci-dessous, puis cliquez sur Prédire.",
+        "draw": "DESSINEZ ICI",
+        "result": "RÉSULTAT",
+        "thickness": "Épaisseur du stylo",
+        "tip": "Conseil : Dessinez un seul chiffre, en grand et bien centré pour de meilleurs résultats.",
+        "predict": "Prédire",
+        "clear": "Effacer",
+        "detected": "Chiffre prédit",
+        "confidence": "Confiance",
+        "processed": "Image transmise au modèle (8×8)",
+        "votes": "VOTES DES VOISINS",
+        "neighbors": "voisins",
+        "waiting": "En attente de votre dessin...",
+        "empty": "Veuillez dessiner un chiffre avant de lancer la prédiction.",
+        "error": "Erreur : impossible de lire le dessin. Veuillez réessayer.",
+        "example": "Exemple 7",
+        "show_error": "Afficher erreur",
+        "about": "À propos",
+        "interactive": "Interactif",
+        "footer": "Modèle : KNN (k=5) entraîné sur le jeu de données scikit-learn digits · Images 8×8",
+        "pen": "Épaisseur du trait",
+        "success": "Prédiction effectuée avec succès !",
+        "initial": "1. État initial (vide)",
+        "state2": "2. Résultat (Chiffre 7)",
+        "state3": "3. Résultat (Chiffre 3)",
+        "state4": "4. État d'erreur",
+        "about_text": "Cette application utilise l'algorithme KNN pour reconnaître les chiffres manuscrits. Dessinez un chiffre et le modèle recherchera ses 5 voisins les plus proches.",
+        "no_result": "Dessinez un chiffre puis cliquez sur Prédire."
+    },
+
+    "EN": {
+        "header": "Digit Recognition",
+        "title": "Handwritten Digit Recognition",
+        "subtitle": "Draw a digit from 0 to 9 in the box below, then click Predict.",
+        "draw": "DRAW HERE",
+        "result": "RESULT",
+        "thickness": "Pen thickness",
+        "tip": "Tip: Draw one digit clearly, large and centered for better results.",
+        "predict": "Predict",
+        "clear": "Clear",
+        "detected": "Predicted digit",
+        "confidence": "Confidence",
+        "processed": "Image sent to model (8×8)",
+        "votes": "NEIGHBOR VOTES",
+        "neighbors": "neighbors",
+        "waiting": "Waiting for your drawing...",
+        "empty": "Please draw a digit before making a prediction.",
+        "error": "Error: unable to read the drawing. Please try again.",
+        "example": "Example 7",
+        "show_error": "Show error",
+        "about": "About",
+        "interactive": "Interactive",
+        "footer": "Model: KNN (k=5) trained on scikit-learn digits dataset · 8×8 images",
+        "pen": "Pen thickness",
+        "success": "Prediction completed successfully!",
+        "initial": "1. Initial state (empty)",
+        "state2": "2. Result (Digit 7)",
+        "state3": "3. Result (Digit 3)",
+        "state4": "4. Error state",
+        "about_text": "This application uses KNN to recognize handwritten digits. Draw a digit and the model will search for its 5 nearest neighbors.",
+        "no_result": "Draw a digit and click Predict."
+    }
+}
+
+t = translations[st.session_state.language]
+
+
+# =====================================================
+# 5. PRETRAITEMENT
+# =====================================================
 
 def prepare_drawing(image_data):
 
@@ -130,7 +174,7 @@ def prepare_drawing(image_data):
 
     inverted = Image.eval(
         gray,
-        lambda pixel: 255 - pixel
+        lambda p: 255 - p
     )
 
     array = np.asarray(inverted, dtype=np.uint8)
@@ -149,7 +193,7 @@ def prepare_drawing(image_data):
 
     h, w = cropped.shape
 
-    scale = 7.0 / max(h, w)
+    scale = 7 / max(h, w)
 
     new_w = max(1, int(round(w * scale)))
     new_h = max(1, int(round(h * scale)))
@@ -186,7 +230,7 @@ def prepare_drawing(image_data):
         )
 
     digit = np.clip(
-        digit / 255.0 * 16.0,
+        digit / 255 * 16,
         0,
         16
     )
@@ -194,139 +238,244 @@ def prepare_drawing(image_data):
     return digit.reshape(1, 64), digit
 
 
-# ==================================================
-# 5. SESSION STATE
-# ==================================================
+# =====================================================
+# 6. FONCTION DE PREDICTION
+# =====================================================
 
-if "canvas_key" not in st.session_state:
-    st.session_state.canvas_key = 0
+def make_prediction(sample):
 
-if "prediction" not in st.session_state:
-    st.session_state.prediction = None
+    digit = int(model.predict(sample)[0])
+
+    probabilities = model.predict_proba(sample)[0]
+
+    confidence = float(np.max(probabilities))
+
+    distances, indices = model.kneighbors(sample)
+
+    neighbor_labels = y[indices[0]]
+
+    unique, counts = np.unique(
+        neighbor_labels,
+        return_counts=True
+    )
+
+    votes = sorted(
+        zip(unique, counts),
+        key=lambda item: item[1],
+        reverse=True
+    )
+
+    st.session_state.prediction = {
+        "digit": digit,
+        "confidence": confidence,
+        "probabilities": probabilities,
+        "image": sample.reshape(8, 8),
+        "votes": votes
+    }
+
+    st.session_state.show_error = False
 
 
-# ==================================================
-# 6. HEADER
-# ==================================================
+# =====================================================
+# 7. NAVIGATION
+# =====================================================
 
-st.title("✍️ Handwritten Digit Recognition")
+st.title("✍️ " + t["header"])
 
-st.caption(
-    "Write a digit from 0 to 9 and let KNN recognize it."
+nav1, nav2, nav3, nav4, nav5 = st.columns(
+    [1.2, 1, 1.2, 0.8, 0.8]
 )
+
+with nav1:
+    if st.button(t["interactive"], use_container_width=True):
+        st.session_state.mode = "interactive"
+        st.session_state.prediction = None
+        st.session_state.show_error = False
+        st.rerun()
+
+with nav2:
+    if st.button(t["example"], use_container_width=True):
+        st.session_state.mode = "example"
+        make_prediction(X[7].reshape(1, 64))
+        st.rerun()
+
+with nav3:
+    if st.button(t["show_error"], use_container_width=True):
+        st.session_state.mode = "error"
+        st.session_state.show_error = True
+        st.rerun()
+
+with nav4:
+    if st.button("🇫🇷 FR", use_container_width=True):
+        st.session_state.language = "FR"
+        st.rerun()
+
+with nav5:
+    if st.button("🇬🇧 EN", use_container_width=True):
+        st.session_state.language = "EN"
+        st.rerun()
+
+with st.expander("ℹ️ " + t["about"]):
+    st.write(t["about_text"])
 
 st.divider()
 
 
-# ==================================================
-# 7. STATISTICS CARDS
-# ==================================================
+# =====================================================
+# 8. TITRE PRINCIPAL
+# =====================================================
 
-col1, col2, col3 = st.columns(3, gap="medium")
+st.header(t["title"])
 
-with col1:
-    st.metric(
-        label="🤖 Algorithm",
-        value="KNN"
-    )
-
-with col2:
-    st.metric(
-        label="👥 Number of Neighbors",
-        value="5"
-    )
-
-with col3:
-    st.metric(
-        label="🎯 Model Accuracy",
-        value=f"{accuracy * 100:.2f}%"
-    )
-
+st.caption(t["subtitle"])
 
 st.write("")
 
 
-# ==================================================
-# 8. MAIN INTERFACE
-# ==================================================
+# =====================================================
+# 9. STATISTIQUES
+# =====================================================
 
-left, right = st.columns(
-    [1, 1],
-    gap="large"
+stat1, stat2, stat3 = st.columns(3)
+
+stat1.metric("🤖 Algorithm", "KNN")
+
+stat2.metric("👥 Number of Neighbors", "5")
+
+stat3.metric(
+    "🎯 Model Accuracy",
+    f"{accuracy * 100:.2f}%"
 )
 
+st.write("")
 
-# ==================================================
-# 9. DRAWING PANEL
-# ==================================================
+
+# =====================================================
+# 10. LES DEUX RECTANGLES PRINCIPAUX
+# =====================================================
+
+left, right = st.columns(2, gap="medium")
+
+
+# -----------------------------------------------------
+# RECTANGLE GAUCHE : DESSIN
+# -----------------------------------------------------
 
 with left:
 
     with st.container(border=True):
 
-        st.subheader("✍️ Draw your digit")
+        st.subheader("✍️ " + t["draw"])
 
-        st.caption(
-            "Use your mouse or touch screen to draw a number."
-        )
+        st.caption("280 × 280 px")
 
         stroke = st.slider(
-            "Pen thickness",
-            min_value=8,
-            max_value=30,
-            value=18,
-            step=2
+            t["thickness"],
+            8,
+            30,
+            18
         )
 
         canvas_result = st_canvas(
-
             fill_color="rgba(255,255,255,0)",
-
             stroke_width=stroke,
-
-            stroke_color="#111111",
-
-            background_color="#FFFFFF",
-
-            height=300,
-
-            width=300,
-
+            stroke_color="#FFFFFF",
+            background_color="#000000",
+            height=280,
+            width=280,
             drawing_mode="freedraw",
-
             update_streamlit=True,
-
             key=f"canvas_{st.session_state.canvas_key}"
-
         )
 
-        st.caption(
-            "💡 Tip: Draw one digit clearly in the center."
-        )
+        st.caption(t["tip"])
 
-        st.write("")
-
-        btn1, btn2 = st.columns(2)
+        btn1, btn2 = st.columns([2, 1])
 
         with btn1:
-
             predict_clicked = st.button(
-                "🔍 Recognize",
+                "▶ " + t["predict"],
                 type="primary",
                 use_container_width=True
             )
 
         with btn2:
-
             clear_clicked = st.button(
-                "↻ Clear",
+                t["clear"],
                 use_container_width=True
             )
 
 
-# ==================================================
-# 10. CLEAR DRAWING
-# ==================================================
+# -----------------------------------------------------
+# RECTANGLE DROIT : RESULTAT
+# -----------------------------------------------------
+
+with right:
+
+    with st.container(border=True):
+
+        st.subheader("🎯 " + t["result"])
+
+        prediction = st.session_state.prediction
+
+        if prediction is not None:
+
+            st.success(t["success"])
+
+            st.markdown(
+                f"<h1 style='text-align:center;"
+                f"font-size:90px;color:#1677ff;'>"
+                f"{prediction['digit']}</h1>",
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                f"**{t['detected']} : {prediction['digit']}**"
+            )
+
+            st.write(
+                f"**{t['confidence']} : "
+                f"{prediction['confidence'] * 100:.1f}%**"
+            )
+
+            st.progress(prediction["confidence"])
+
+            st.divider()
+
+            st.caption(t["processed"])
+
+            preview = (
+                prediction["image"] / 16 * 255
+            ).clip(0, 255).astype(np.uint8)
+
+            st.image(
+                preview,
+                width=100
+            )
+
+            st.divider()
+
+            st.caption(t["votes"])
+
+            for label, count in prediction["votes"]:
+
+                st.write(
+                    f"Chiffre {label} : "
+                    f"{count} / 5 {t['neighbors']}"
+                )
+
+                st.progress(count / 5)
+
+        else:
+
+            st.info(t["waiting"])
+
+            st.caption(t["no_result"])
+
+
+# =====================================================
+# 11. TRAITEMENT DES BOUTONS
+# =====================================================
 
 if clear_clicked:
 
@@ -334,14 +483,15 @@ if clear_clicked:
 
     st.session_state.prediction = None
 
+    st.session_state.show_error = False
+
     st.rerun()
 
 
-# ==================================================
-# 11. KNN PREDICTION
-# ==================================================
-
 if predict_clicked:
+
+    if st.session_state.show_error:
+        st.session_state.show_error = False
 
     processed = None
 
@@ -368,124 +518,74 @@ if predict_clicked:
 
     if processed is None:
 
-        st.session_state.prediction = None
-
-        st.warning(
-            "Please draw a digit before clicking Recognize."
-        )
+        st.warning(t["empty"])
 
     else:
 
         sample, preview = processed
 
-        predicted_digit = int(
-            model.predict(sample)[0]
-        )
+        make_prediction(sample)
 
-        probabilities = model.predict_proba(sample)[0]
-
-        confidence = float(np.max(probabilities))
-
-        st.session_state.prediction = {
-
-            "digit": predicted_digit,
-
-            "confidence": confidence,
-
-            "probabilities": probabilities,
-
-            "preview": preview
-
-        }
+    st.rerun()
 
 
-# ==================================================
-# 12. RESULT PANEL
-# ==================================================
+# =====================================================
+# 12. ETAT D'ERREUR DEMO
+# =====================================================
 
-with right:
+if st.session_state.show_error:
 
-    with st.container(border=True):
-
-        st.subheader("🎯 Recognition Result")
-
-        prediction = st.session_state.prediction
-
-        if prediction is not None:
-
-            st.success("Digit successfully recognized!")
-
-            st.markdown(
-                f"""
-                <h1 style="
-                    text-align:center;
-                    font-size:100px;
-                    color:#4f46e5;
-                    margin:0;
-                ">
-                    {prediction["digit"]}
-                </h1>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.metric(
-                "Confidence",
-                f'{prediction["confidence"] * 100:.1f}%'
-            )
-
-            st.divider()
-
-            st.write("**Processed image (8 × 8)**")
-
-            preview = (
-                prediction["preview"] * 255 / 16
-            ).clip(0, 255).astype(np.uint8)
-
-            st.image(
-                preview,
-                width=120
-            )
-
-            st.divider()
-
-            st.write("**Prediction probabilities**")
-
-            df = pd.DataFrame({
-
-                "Digit": [str(i) for i in range(10)],
-
-                "Probability": prediction["probabilities"]
-
-            }).set_index("Digit")
-
-            st.bar_chart(
-                df,
-                y="Probability",
-                height=200
-            )
-
-        else:
-
-            st.info(
-                "Your result will appear here after recognition."
-            )
-
-            st.write("")
-
-            st.markdown("### 🔢")
-
-            st.caption(
-                "Draw a digit and click on Recognize to see the result."
-            )
+    st.error(t["error"])
 
 
-# ==================================================
-# 13. FOOTER
-# ==================================================
+# =====================================================
+# 13. ETATS DE DEMONSTRATION
+# =====================================================
 
 st.divider()
 
-st.caption(
-    "Machine Learning Project | KNN | Python & Streamlit"
-)
+st.caption("États de démonstration")
+
+demo1, demo2, demo3, demo4 = st.columns(4)
+
+with demo1:
+
+    if st.button(t["initial"], use_container_width=True):
+
+        st.session_state.prediction = None
+        st.session_state.show_error = False
+        st.session_state.mode = "interactive"
+        st.rerun()
+
+with demo2:
+
+    if st.button(t["state2"], use_container_width=True):
+
+        make_prediction(X[7].reshape(1, 64))
+        st.session_state.mode = "example"
+        st.rerun()
+
+with demo3:
+
+    if st.button(t["state3"], use_container_width=True):
+
+        make_prediction(X[3].reshape(1, 64))
+        st.session_state.mode = "example"
+        st.rerun()
+
+with demo4:
+
+    if st.button(t["state4"], use_container_width=True):
+
+        st.session_state.show_error = True
+        st.session_state.prediction = None
+        st.rerun()
+
+
+# =====================================================
+# 14. FOOTER
+# =====================================================
+
+st.divider()
+
+st.caption(t["footer"])
